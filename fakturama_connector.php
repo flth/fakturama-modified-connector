@@ -1359,11 +1359,11 @@ if (is_string($orders_status_tosync)) {
 
 
 				
-				if (FAKTURAMA_WEBSHOP_BASE == OSCOMMERCE) {
+				if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
 					$payment_class = $paymentsynonym[ $order->info['payment_method'] ];
 					
 				}
-				if (FAKTURAMA_WEBSHOP_BASE == XTCOMMERCE) {
+				if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
 					$payment_class = $order->info['payment_class'];
 					$order->info['payment_method'] = $paymentsynonym[ $order->info['payment_class'] ];
 				}

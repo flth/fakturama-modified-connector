@@ -108,15 +108,12 @@ if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
 //  error_reporting(E_ALL & ~E_NOTICE);
 error_reporting(E_ERROR);
 ini_set('display_errors', 0);
+
   // Disable use_trans_sid as xtc_href_link() does this manually
   if (function_exists('ini_set')) {
     ini_set('session.use_trans_sid', 0);
   }
-  $log = '';
-foreach ($_POST as $key=>$value) {
-	$log .= $key .' -> '. $value .'\r\n';
-}
-if (file_put_contents('../cache/log.txt', $log) === false) echo "false!";
+
   define('LANG_DIR','../lang/');
 
   // Define the project version
@@ -1018,8 +1015,6 @@ if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
 		$admin_valid = 1;
 		}
 	}
-// TODO remove next line!!!
-	$admin_valid = 1;
 
 }
 

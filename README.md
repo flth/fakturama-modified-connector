@@ -7,6 +7,7 @@ This piece of code is the connection between a Fakturama instance on your pc and
 
 - up and running installation of Fakturama (tested with 2.1.3), you can get it from here [www.fakturama.info](https://www.fakturama.info)
 - up and running installation of either modified Shop 2.0.x or 3.x, you can get it from here [www.modified-shop.org](https://www.modified-shop.org)
+- PHP 8.0 or higher is required
 
 ## Installation
 

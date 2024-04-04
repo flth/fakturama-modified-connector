@@ -443,7 +443,7 @@ function stripInvalidXml(string $value): string
 }
 
 // Convert a string to proper UTF-8
-function convertToUTF8(string $s): string
+function convertToUTF8(?string $s): string
 {
 
     if (!mb_check_encoding($s, 'UTF-8')
@@ -456,7 +456,7 @@ function convertToUTF8(string $s): string
 
 
 // Convert a string to UTF-8 and encode the special characters
-function my_encode(string $s): string
+function my_encode(?string $s): string
 {
 
     // Convert to UTF-8

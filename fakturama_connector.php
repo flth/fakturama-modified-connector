@@ -392,19 +392,19 @@ require(DIR_WS_FUNCTIONS . 'general.php');
 require(DIR_WS_FUNCTIONS . 'html_output.php');
 
 // Return true if $str ends with $sub
-function endsWith($str, $sub)
+function endsWith(string $str, string $sub): bool
 {
     return (substr($str, strlen($str) - strlen($sub)) == $sub);
 }
 
 //Return true if $str starts with $sub
-function startsWith($str, $sub)
+function startsWith(string $str, string $sub): bool
 {
     return substr($str, 0, strlen($sub)) == $sub;
 }
 
 // Encrypt the data
-function my_encrypt($s)
+function my_encrypt(string $s): string
 {
 
 
@@ -418,7 +418,7 @@ function my_encrypt($s)
 }
 
 // Remove invalid XML Characters
-function stripInvalidXml($value)
+function stripInvalidXml(string $value): string
 {
     $ret = "";
     $current;
@@ -443,7 +443,7 @@ function stripInvalidXml($value)
 }
 
 // Convert a string to proper UTF-8
-function convertToUTF8($s)
+function convertToUTF8(string $s): string
 {
 
     if (!mb_check_encoding($s, 'UTF-8')
@@ -456,7 +456,7 @@ function convertToUTF8($s)
 
 
 // Convert a string to UTF-8 and encode the special characters
-function my_encode($s)
+function my_encode(string $s): string
 {
 
     // Convert to UTF-8
@@ -484,13 +484,13 @@ function my_encode($s)
 }
 
 // Convert date to ISO8601
-function date_to_ISO($datestring)
+function date_to_ISO(string $datestring): string
 {
     return date('c', strtotime($datestring));
 }
 
 // Exit with error message
-function exit_with_error($err)
+function exit_with_error(string $err): void
 {
     echo(" <error>" . $err . "</error>\n");
     echo("</webshopexport>\n");
@@ -499,7 +499,7 @@ function exit_with_error($err)
 
 
 // Keep the BR-tags
-function my_clean_nl($s)
+function my_clean_nl(string $s): string
 {
 
     // Keep the BR-tags
@@ -510,6 +510,7 @@ function my_clean_nl($s)
     // remove non breakable spaces return
     $s = str_replace("\xC2\xA0", " ", $s);
     $s = trim($s);
+
     return $s;
 }
 
@@ -517,7 +518,7 @@ class order
 {
     var $info, $totals, $products, $customer, $delivery;
 
-    function order($order_id)
+    function __construct(int $order_id)
     {
         $this->info = array();
         $this->totals = array();
@@ -528,7 +529,7 @@ class order
         $this->query($order_id);
     }
 
-    function query($order_id)
+    function query(int $order_id): void
     {
 
         if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
@@ -1251,7 +1252,7 @@ if ($action_getproducts) {
             echo("gross=\"" . my_encrypt(number_format($products['products_price'] * (1 + $products['tax_rate'] / 100), 2)) . "\" ");
             echo("vatpercent=\"" . my_encrypt(number_format($products['tax_rate'], 2)) . "\" ");
             echo("quantity=\"" . my_encrypt($products['products_quantity']) . "\" ");
-            echo("id=\"" . my_encrypt($products['products_id']) . "\" ");
+            echo("id=\"" . my_encrypt($products['products_id']) . "\"");
             echo(">\n");
             echo("   <model>" . my_encode($products['products_model']) . "</model>\n");
             if ($use_ean_code) {

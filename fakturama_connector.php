@@ -1,13 +1,13 @@
 <?php
 /* 
- * Fakturama - Free Invoicing Software - http://www.fakturama.org
+ * Fakturama - Free Invoicing Software - https://www.fakturama.info
  * 
  * 
  * Web shop connector script
  */
 define('FAKTURAMA_CONNECTOR_VERSION', '2.0');
 /* 
- * Date: 2024-04-02
+ * Date: 2024-04-04
  *
  * Compatibility:
  * Fakturama 2.1.3
@@ -20,15 +20,15 @@ define('FAKTURAMA_CONNECTOR_VERSION', '2.0');
  * Copyright (C) 2011 Gerd Bartelt
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * https://www.eclipse.org/legal/epl-v20.html
  * 
  * Contributors:
  *     Gerd Bartelt - initial API and implementation
  *     Oliver Groth
  *     Ralf Heydenreich
- *	    Florian Thiel
+ *	   Florian Thiel
  */
 
 
@@ -42,7 +42,7 @@ define('FAKTURAMA_WEBSHOP', 'XTCMODIFIED');
 define('FAKTURAMA_WEBSHOP_CHARSET', 'ISO-8859-1');
 
 // Only for debugging. All the data is encrypted.
-//define ('ENCRYPT_DATA',true);	
+//define ('ENCRYPT_DATA',true);
 
 
 // Set header to UTF-8
@@ -231,7 +231,7 @@ if ($use_ean_code) {
 
 
 // include the mail classes
-function sbf_php_mail($from_email_address, $from_email_name, $to_email_address, $to_name, $forwarding_to, $reply_address, $reply_address_name, $path_to_attachement, $path_to_more_attachements, $email_subject, $message_body_html, $message_body_plain, $order_language)
+function sbf_php_mail(string $from_email_address, string $from_email_name, string $to_email_address, string $to_name, string $forwarding_to, string $reply_address, string $reply_address_name, string $path_to_attachement, string $path_to_more_attachements, string $email_subject, string $message_body_html, string $message_body_plain, string $order_language): string
 {
     global $mail_error;
 
@@ -290,10 +290,13 @@ function sbf_php_mail($from_email_address, $from_email_name, $to_email_address, 
         $lang_data = xtc_db_fetch_array($lang_query);
         $mail->CharSet = $lang_data['language_charset'];
     }
+
     //SetLanguage Multilanguage
     if (isset ($_SESSION['language_code'])) {
         $lang_code = $_SESSION['language_code'];
-    } else $lang_code = DEFAULT_LANGUAGE;
+    } else {
+        $lang_code = DEFAULT_LANGUAGE;
+    }
 
 
     $mail->SetLanguage($lang_code, DIR_WS_CLASSES);
@@ -336,15 +339,17 @@ function sbf_php_mail($from_email_address, $from_email_name, $to_email_address, 
     $mail->Sender = $from_email_address;
     $mail->FromName = $from_email_name;
     $mail->AddAddress($to_email_address, $to_name);
-    if ($forwarding_to != '')
+    if ($forwarding_to != '') {
         $mail->AddBCC($forwarding_to);
+    }
     $mail->AddReplyTo($reply_address, $reply_address_name);
 
     $mail->WordWrap = 50; // set word wrap to 50 characters
     $mail->Subject = $email_subject;
 
-    if (!$mail->Send())
+    if (!$mail->Send()) {
         return "Error sending email to: \"" . $to_email_address . "\" - " . $mail->ErrorInfo;
+    }
 
     return "";
 }
@@ -352,9 +357,11 @@ function sbf_php_mail($from_email_address, $from_email_name, $to_email_address, 
 
 // Output a raw date string in the selected locale date format
 // $raw_date needs to be in this format: YYYY-MM-DD HH:MM:SS
-function sbf_date_long($raw_date)
+function sbf_date_long(string $raw_date): string|false
 {
-    if (($raw_date == '0000-00-00 00:00:00') || ($raw_date == '')) return false;
+    if (($raw_date == '0000-00-00 00:00:00') || ($raw_date == '')) {
+        return false;
+    }
 
     $year = (int)substr($raw_date, 0, 4);
     $month = (int)substr($raw_date, 5, 2);
@@ -364,7 +371,6 @@ function sbf_date_long($raw_date)
     $second = (int)substr($raw_date, 17, 2);
 
     return strftime('%A, %d. %B %Y', mktime($hour, $minute, $second, $month, $day, $year));
-
 }
 
 
@@ -373,15 +379,15 @@ sbf_db_connect() or die('Unable to connect to database server!');
 
 
 // set application wide parameters
-$configuration_query = sbf_db_query("SELECT
-										configuration_key AS cfgKey, configuration_value AS cfgValue
-									 FROM
-									 	 configuration");
+$configuration_query = sbf_db_query("SELECT configuration_key AS cfgKey, configuration_value AS cfgValue
+									      FROM configuration
+									   ");
 
 while ($configuration = sbf_db_fetch_array($configuration_query)) {
     $configuration_array[$configuration['cfgKey']] = $configuration['cfgValue'];
     define($configuration['cfgKey'], $configuration['cfgValue']);
 }
+
 if (!defined('TEMPLATE_ENGINE')) {
     define('TEMPLATE_ENGINE', 'smarty_4');
 }
@@ -516,86 +522,74 @@ function my_clean_nl(string $s): string
 
 class order
 {
-    var $info, $totals, $products, $customer, $delivery;
+    public array $products = [];
+    public array $totals = [];
+    public array $info = [];
+    public array $customer = [];
+    public array $delivery = [];
 
     function __construct(int $order_id)
     {
-        $this->info = array();
-        $this->totals = array();
-        $this->products = array();
-        $this->customer = array();
-        $this->delivery = array();
-
         $this->query($order_id);
     }
 
     function query(int $order_id): void
     {
 
-        if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
-            $order_query_payment_class = "";
-            $customers_cid_shs = '';
-            $language_shs = '';
-            $ean_query_string_order = "";
-            $vpe_query_string_A = "";
-            $vpe_query_string_B = "";
+        $order_query_payment_class = $customers_cid_shs = $language_shs = $ean_query_string_order = $vpe_query_string_A = $vpe_query_string_B = "";
 
-        } else {
-            $order_query_payment_class = ",payment_class";
-            $customers_cid_shs = ', customers_cid';
-            $language_shs = ',language';
-            $ean_query_string_order = ", prod.products_ean";
-            $vpe_query_string_A = ",	p_vpe.products_vpe_name";
+        if (FAKTURAMA_WEBSHOP_BASE != 'OSCOMMERCE') {
+            $order_query_payment_class = "payment_class,";
+            $customers_cid_shs = 'customers_cid,';
+            $language_shs = ', language';
+            $ean_query_string_order = "prod.products_ean,";
+            $vpe_query_string_A = "p_vpe.products_vpe_name,";
             $vpe_query_string_B = "LEFT JOIN products_vpe p_vpe ON (prod.products_vpe = p_vpe.products_vpe_id) AND (p_vpe.language_id = langu.languages_id)";
         }
 
-
-        $order_query = sbf_db_query("SELECT
-      									customers_id " . $customers_cid_shs . ", customers_name, customers_company, customers_street_address,
-      									customers_suburb, customers_city, customers_postcode, customers_state,
-      									customers_country, customers_telephone, customers_email_address, customers_address_format_id,
-      									delivery_name, delivery_company, delivery_street_address, delivery_suburb, delivery_city,
-      									delivery_postcode, delivery_state, delivery_country, delivery_address_format_id,
-      									billing_name, billing_company, billing_street_address, billing_suburb, billing_city, billing_postcode,
-      									billing_state, billing_country, billing_address_format_id, payment_method" . $order_query_payment_class . ", currency, currency_value, date_purchased,
-      									orders_status, last_modified" . $language_shs . "
-      								FROM
-      									orders
-      								WHERE
-      									orders_id = '" . (int)$order_id . "'
+        $order_query = sbf_db_query("SELECT customers_id, " . $customers_cid_shs . " customers_name, customers_company, customers_street_address,
+      									       customers_suburb, customers_city, customers_postcode, customers_state,
+      									       customers_country, customers_telephone, customers_email_address, customers_address_format_id,
+      									       delivery_name, delivery_company, delivery_street_address, delivery_suburb, delivery_city,
+      									       delivery_postcode, delivery_state, delivery_country, delivery_address_format_id,
+      									       billing_name, billing_company, billing_street_address, billing_suburb, billing_city, billing_postcode,
+      									       billing_state, billing_country, billing_address_format_id, payment_method, " . $order_query_payment_class . " currency, currency_value, date_purchased,
+      									       orders_status, last_modified" . $language_shs . "
+      								      FROM orders
+      								     WHERE orders_id = '" . $order_id . "'
       								");
 
         $order = sbf_db_fetch_array($order_query);
 
-        $totals_query = sbf_db_query("SELECT
-      									title, text
-      								FROM 
-      									orders_total
-      								WHERE
-      									orders_id = '" . (int)$order_id . "'
-      								ORDER BY
-      									sort_order
-      								");
+        $totals_query = sbf_db_query("SELECT	title, text
+      								       FROM orders_total
+      								      WHERE orders_id = '" . (int)$order_id . "'
+      								   ORDER BY	sort_order
+      								 ");
 
         while ($totals = sbf_db_fetch_array($totals_query)) {
-            $this->totals[] = array('title' => $totals['title'],
-                'text' => $totals['text']);
+            $this->totals[] = [
+                'title' => $totals['title'],
+                'text' => $totals['text']
+            ];
         }
 
-        $this->info = array('currency' => $order['currency'],
+        $this->info = [
+            'currency' => $order['currency'],
             'currency_value' => $order['currency_value'],
             'payment_method' => $order['payment_method'],
             'payment_class' => $order['payment_class'],
             'date_purchased' => $order['date_purchased'],
             'orders_status' => $order['orders_status'],
             'language' => $order['language'],
-            'last_modified' => $order['last_modified']);
+            'last_modified' => $order['last_modified']
+        ];
 
         if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
             $this->info['language'] = FAKTURAMA_LANGUAGE;
         }
 
-        $this->customer = array(
+        $this->customer = [
             'id' => $order['customers_id'],
             'cid' => $order['customers_cid'],
             'firstname' => "",
@@ -610,9 +604,11 @@ class order
             'country' => $order['customers_country'],
             'format_id' => $order['customers_address_format_id'],
             'telephone' => $order['customers_telephone'],
-            'email_address' => $order['customers_email_address']);
+            'email_address' => $order['customers_email_address']
+        ];
 
-        $this->delivery = array('name' => $order['delivery_name'],
+        $this->delivery = [
+            'name' => $order['delivery_name'],
             'firstname' => "",
             'lastname' => $order['delivery_name'],
             'gender' => "",
@@ -623,9 +619,11 @@ class order
             'postcode' => $order['delivery_postcode'],
             'state' => $order['delivery_state'],
             'country' => $order['delivery_country'],
-            'format_id' => $order['delivery_address_format_id']);
+            'format_id' => $order['delivery_address_format_id']
+        ];
 
-        $this->billing = array('name' => $order['billing_name'],
+        $this->billing = [
+            'name' => $order['billing_name'],
             'firstname' => "",
             'lastname' => $order['billing_name'],
             'gender' => "",
@@ -636,19 +634,22 @@ class order
             'postcode' => $order['billing_postcode'],
             'state' => $order['billing_state'],
             'country' => $order['billing_country'],
-            'format_id' => $order['billing_address_format_id']);
+            'format_id' => $order['billing_address_format_id']
+        ];
 
-        $customers_id = $this->customer['id'];
+        $customers_id = (int)$this->customer['id'];
         $firstandlastname = $this->customer['firstname'] . " " . $this->customer['lastname'] . "-";
 
 
-        $orders_address_query = sbf_db_query("SELECT
-      											customers_id, entry_gender, entry_firstname, entry_lastname, entry_country_id, entry_zone_id
-      										FROM
-      											address_book
-      										WHERE
-      											customers_id = '" . (int)$customers_id . "'
-      										");
+        $orders_address_query = sbf_db_query("SELECT customers_id,
+                                                        entry_gender,
+                                                        entry_firstname,
+                                                        entry_lastname,
+                                                        entry_country_id,
+                                                        entry_zone_id
+      										       FROM	address_book
+      										      WHERE customers_id = '" . $customers_id . "'
+      										 ");
 
         while ($orders_address = sbf_db_fetch_array($orders_address_query)) {
             $firstandlastname = $orders_address['entry_firstname'] . " " . $orders_address['entry_lastname'];
@@ -674,12 +675,10 @@ class order
         $customer_geo_zone = 1;
 
         // Get the geozone if only the country matches
-        $geo_zone_query = sbf_db_query("SELECT
-      						geo_zone_id, zone_country_id, zone_id 
-      						FROM
-      					zones_to_geo_zones
-      						WHERE
-      					zone_country_id = '" . (int)$customer_entry_country_id . "'");
+        $geo_zone_query = sbf_db_query("SELECT geo_zone_id, zone_country_id, zone_id 
+      						                 FROM zones_to_geo_zones
+      						                WHERE zone_country_id = '" . (int)$customer_entry_country_id . "'
+      						           ");
 
         while ($geo_zone_line = sbf_db_fetch_array($geo_zone_query)) {
             if ($geo_zone_line['geo_zone_id'] > 0)
@@ -687,12 +686,10 @@ class order
         }
 
         // Get the geozone if only the country and the zone matches
-        $geo_zone_query = sbf_db_query("SELECT
-      						geo_zone_id, zone_country_id, zone_id 
-      						FROM
-      					zones_to_geo_zones
-      						WHERE
-      					((zone_country_id = '" . (int)$customer_entry_country_id . "') AND (zone_id = '" . (int)$customer_entry_zone_id . "'))");
+        $geo_zone_query = sbf_db_query("SELECT geo_zone_id, zone_country_id, zone_id 
+      						                 FROM zones_to_geo_zones 
+      						                WHERE ( zone_country_id = '" . (int)$customer_entry_country_id . "' AND zone_id = '" . (int)$customer_entry_zone_id . "' )
+      						             ");
 
         while ($geo_zone_line = sbf_db_fetch_array($geo_zone_query)) {
             if ($geo_zone_line['geo_zone_id'] > 0)
@@ -703,35 +700,28 @@ class order
         $index = 0;
 
 
-        $orders_products_query = sbf_db_query("SELECT
-
-     											tax.tax_description, ordprod.orders_products_id, ordprod.products_name,ordprod.products_id,
-     											ordprod.products_model, ordprod.products_price, ordprod.products_tax,
-     											ordprod.products_quantity, ordprod.final_price" . $ean_query_string_order . $vpe_query_string_A . "
-  											FROM
-											orders_products ordprod
-											LEFT JOIN
-											products prod ON (prod.products_id = ordprod.products_id) 
-											LEFT JOIN
-											tax_rates tax ON ((prod.products_tax_class_id = tax.tax_class_id) AND (tax.tax_zone_id = '" . (int)$customer_geo_zone . "'))
-											LEFT JOIN	
-											languages langu ON (langu.code = '" . DEFAULT_LANGUAGE . "')
-											" . $vpe_query_string_B . "											
-											WHERE 
-     											ordprod.orders_id = '" . (int)$order_id . "' 
+        $orders_products_query = sbf_db_query("SELECT tax.tax_description, ordprod.orders_products_id, ordprod.products_name,ordprod.products_id,
+     											         ordprod.products_model, ordprod.products_price, ordprod.products_tax,
+     											         ordprod.products_quantity, ordprod.final_price" . $ean_query_string_order . $vpe_query_string_A . "
+  											        FROM orders_products ordprod
+											   LEFT JOIN products prod
+											          ON prod.products_id = ordprod.products_id 
+											   LEFT JOIN tax_rates tax
+											          ON ( prod.products_tax_class_id = tax.tax_class_id AND tax.tax_zone_id = '" . (int)$customer_geo_zone . "')
+											   LEFT JOIN languages langu
+											          ON langu.code = '" . DEFAULT_LANGUAGE . "'
+											             " . $vpe_query_string_B . "											
+											       WHERE ordprod.orders_id = '" . $order_id . "' 
      										");
 
-        $language_query = sbf_db_query("SELECT
-       									langu.code
-    								FROM
-  										languages langu
-  									ORDER BY
-  										languages_id ASC
-        							");
+        $language_query = sbf_db_query("SELECT code
+    								         FROM languages
+  									     ORDER BY languages_id ASC
+        							   ");
 
 
         while ($orders_products = sbf_db_fetch_array($orders_products_query)) {
-            $this->products[$index] = array(
+            $this->products[$index] = [
                 'id' => $orders_products['orders_products_id'],
                 'qty' => $orders_products['products_quantity'],
                 'name' => $orders_products['products_name'],
@@ -742,21 +732,18 @@ class order
                 'tax_description' => $orders_products['tax_description'],
                 'price' => $orders_products['products_price'],
                 'products_vpe_name' => $orders_products['products_vpe_name'],
-                'final_price' => $orders_products['final_price']);
+                'final_price' => $orders_products['final_price'],
+            ];
 
-            $category_query = sbf_db_query("SELECT
-        								  cat_desc.categories_name, langu.code , cat_desc.categories_id , prod_cat.products_id
-        								  FROM
-
-									categories_description cat_desc
-									LEFT JOIN
-									products_to_categories prod_cat ON (prod_cat.categories_id = cat_desc.categories_id)
-									LEFT JOIN
-									languages langu ON (langu.languages_id = cat_desc.language_id)
-									WHERE 
-							  		prod_cat.products_id = '" . (int)$orders_products['products_id'] . "'
-							  		AND langu.code ='" . DEFAULT_LANGUAGE . "' 
-        								  ");
+            $category_query = sbf_db_query("SELECT cat_desc.categories_name, langu.code , cat_desc.categories_id , prod_cat.products_id
+        								         FROM categories_description cat_desc
+									        LEFT JOIN products_to_categories prod_cat
+									               ON prod_cat.categories_id = cat_desc.categories_id
+									        LEFT JOIN languages langu
+									               ON langu.languages_id = cat_desc.language_id
+									            WHERE prod_cat.products_id = '" . (int)$orders_products['products_id'] . "'
+							  		              AND langu.code = '" . DEFAULT_LANGUAGE . "' 
+        								   ");
 
 
             $category = "";
@@ -767,20 +754,19 @@ class order
 
 
             $subindex = 0;
-            $attributes_query = sbf_db_query("SELECT
-        								  		products_options, products_options_values, options_values_price, price_prefix
-        								  FROM
-        								  		orders_products_attributes
-        								  WHERE 
-        								  		orders_id = '" . (int)$order_id . "' 
-        								  		AND orders_products_id = '" . (int)$orders_products['orders_products_id'] . "'"
-            );
+            $attributes_query = sbf_db_query("SELECT products_options, products_options_values, options_values_price, price_prefix
+        								           FROM	orders_products_attributes
+        								          WHERE	orders_id = '" . $order_id . "' 
+        								  		    AND orders_products_id = '" . (int)$orders_products['orders_products_id'] . "'
+        								  		");
             if (sbf_db_num_rows($attributes_query)) {
                 while ($attributes = sbf_db_fetch_array($attributes_query)) {
-                    $this->products[$index]['attributes'][$subindex] = array('option' => $attributes['products_options'],
+                    $this->products[$index]['attributes'][$subindex] = [
+                        'option' => $attributes['products_options'],
                         'value' => $attributes['products_options_values'],
                         'prefix' => $attributes['price_prefix'],
-                        'price' => $attributes['options_values_price']);
+                        'price' => $attributes['options_values_price'],
+                    ];
 
                     $subindex++;
                 }
@@ -832,11 +818,9 @@ if (defined('MODULE_SHIPPING_INSTALLED') && sbf_not_null(MODULE_SHIPPING_INSTALL
 
 
 // search all languages for the payment method
-$languages_query = sbf_db_query("SELECT
-									directory
-								 FROM
-								 	languages
-								 ");
+$languages_query = sbf_db_query("SELECT directory
+								      FROM languages
+								   ");
 while ($languages = sbf_db_fetch_array($languages_query)) {
     for ($i = 0, $n = sizeof($include_modules_payment); $i < $n; $i++) {
         $filename = LANG_DIR . $languages['directory'] . '/modules/payment/' . $include_modules_payment[$i]['file'];
@@ -867,11 +851,9 @@ while ($languages = sbf_db_fetch_array($languages_query)) {
 }
 
 // search all shippings for the shipping method
-$languages_query = sbf_db_query("SELECT
-									directory
-								 FROM
-								 	languages
-								 ");
+$languages_query = sbf_db_query("SELECT directory
+								      FROM languages
+								   ");
 while ($languages = sbf_db_fetch_array($languages_query)) {
     for ($i = 0, $n = sizeof($include_modules_shipping); $i < $n; $i++) {
         $filename = LANG_DIR . $languages['directory'] . '/modules/shipping/' . $include_modules_shipping[$i]['file'];
@@ -898,12 +880,12 @@ while ($languages = sbf_db_fetch_array($languages_query)) {
 
 
 // parse POST parameters
-$action = (isset($_POST['action']) ? $_POST['action'] : '');
-$orderstosync = (isset($_POST['setstate']) ? $_POST['setstate'] : '{}');
-$maxproducts = (isset($_POST['maxproducts']) ? $_POST['maxproducts'] : '');
+$action = $_POST['action'] ?? '';
+$orderstosync = $_POST['setstate'] ?? '{}'; // TODO - check what exactly comes from Fakturama here, NO escaping of $_POST here!
+$maxproducts = filter_input(INPUT_POST, 'maxproducts', FILTER_VALIDATE_INT) ?? '';
 
 if (isset($_POST['lasttime'])) {
-    $lasttime_iso = $_POST['lasttime'];
+    $lasttime_iso = filter_var($_POST['lasttime'], FILTER_VALIDATE_INT); // TODO - check what exactly comes from Fakturama here. But at least we have the $_POST escaped now!
     // convert ISO date from Fakturama to datetime for database
     $lasttime = date("Y-m-d H:i:s", strtotime($lasttime_iso));
 } else {
@@ -955,19 +937,17 @@ echo("<complete_version>" . PROJECT_VERSION . "</complete_version>");
 if (!defined('DEFAULT_LANGUAGE'))
     exit_with_error('DEFAULT_LANGUAGE not defined');
 
-$language_query = sbf_db_query('SELECT
-   					code, directory
-   				FROM
-					languages
-				WHERE
-					code = "' . DEFAULT_LANGUAGE . '"
-       				');
+$language_query = sbf_db_query("SELECT code, directory
+   				                     FROM languages
+				                    WHERE code = '" . DEFAULT_LANGUAGE . "'
+       				              ");
 
 $languages = sbf_db_fetch_array($language_query);
 
 // The language must be in the database
-if (sbf_db_num_rows($language_query) != 1)
+if (sbf_db_num_rows($language_query) != 1) {
     exit_with_error('Language ' . DEFAULT_LANGUAGE . ' not found');
+}
 
 
 // include the language translations
@@ -976,39 +956,33 @@ if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
     require_once(DIR_WS_LANGUAGES . $languages['directory'] . '/orders.php');
 }
 
-
 $admin_valid = 0;
 
 // Get the admins from the database
 if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
 
     require('includes/functions/password_funcs.php');
-    $admin_query = sbf_db_query('
-		SELECT id,user_name, user_password
-		FROM administrators
-		WHERE
-			user_name  = 	"' . $username . '" 	
-		');
+    $admin_query = sbf_db_query("SELECT id, user_name, user_password
+		                              FROM administrators
+		                             WHERE user_name = '" . $username . "' 	
+		                           ");
 
     // Verify password
     if (sbf_db_num_rows($admin_query) == 1) {
         $admin = tep_db_fetch_array($admin_query);
-        if (tep_validate_password($password, $admin['user_password']))
+        if (tep_validate_password($password, $admin['user_password'])) {
             $admin_valid = 1;
+        }
     }
 }
 
 if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
-    $admin_query = sbf_db_query("
-		SELECT customers_id,
-		customers_password
-		FROM customers
-		WHERE
-			customers_email_address = '" . $username . "' AND
-			customers_status = '0'
-		");
+    $admin_query = sbf_db_query("SELECT customers_id, customers_password
+		                              FROM customers
+		                             WHERE customers_email_address = '" . $username . "'
+		                               AND customers_status = '0'
+		                           ");
 
-    //customers_password = "' . $pw .'" AND
     // At least one admin was found
     if (xtc_db_num_rows($admin_query) > 0) {
         $check_customer = xtc_db_fetch_array($admin_query);
@@ -1022,13 +996,13 @@ if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
 
 
 // No admin with valid password found
-if ($admin_valid != 1)
+if ($admin_valid != 1) {
     exit_with_error('Invalid username or password');
+}
 
 
 // update the shop values
 foreach ($orderstosync as $ordertosync) {
-
 
     list($orders_id_tosync, $orders_status_tosync) = explode("=", trim($ordertosync));
 
@@ -1069,9 +1043,9 @@ foreach ($orderstosync as $ordertosync) {
         $notify_comments = str_replace('&equal;', "=", $notify_comments);
 
         // Convert it into the correct character encoding
-        if (function_exists('iconv'))
+        if (function_exists('iconv')) {
             $notify_comments = iconv("UTF-8", FAKTURAMA_WEBSHOP_CHARSET . "//TRANSLIT", $notify_comments);
-
+        }
 
         $notify_comments_mail = $notify_comments;
 
@@ -1079,29 +1053,42 @@ foreach ($orderstosync as $ordertosync) {
 
         $order = new order($orders_id_tosync);
 
-        $lang_query = sbf_db_query("select languages_id from languages where directory = '" . $order->info['language'] . "'");
+        $lang_query = sbf_db_query("SELECT languages_id
+                                         FROM languages
+                                        WHERE directory = '" . $order->info['language'] . "'
+                                       ");
         $lang = sbf_db_fetch_array($lang_query);
         $lang = $lang['languages_id'];
-        if (!isset($lang)) $lang = 1;
+        if (!isset($lang)) {
+            $lang = 1;
+        }
 
         $orders_statuses = array();
         $orders_status_array = array();
-        $orders_status_query = sbf_db_query("select orders_status_id, orders_status_name from orders_status where language_id = '" . $lang . "'");
+        $orders_status_query = sbf_db_query("SELECT orders_status_id, orders_status_name
+                                                  FROM orders_status
+                                                 WHERE language_id = '" . $lang . "'
+                                               ");
         while ($orders_status = sbf_db_fetch_array($orders_status_query)) {
-            $orders_statuses[] = array('id' => $orders_status['orders_status_id'], 'text' => $orders_status['orders_status_name']);
+            $orders_statuses[] = [
+                'id' => $orders_status['orders_status_id'],
+                'text' => $orders_status['orders_status_name'],
+            ];
             $orders_status_array[$orders_status['orders_status_id']] = $orders_status['orders_status_name'];
         }
 
 
         $email_valid = 1;
-        if (empty ($order->customer['email_address']))
+        if (empty ($order->customer['email_address'])) {
             $email_valid = 0;
+        }
 
 
         if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
 
-            if (!empty($notify_comments_mail))
+            if (!empty($notify_comments_mail)) {
                 $notify_comments_mail .= "\n\n";
+            }
 
             $email = STORE_NAME . "\n" . EMAIL_SEPARATOR . "\n" . EMAIL_TEXT_ORDER_NUMBER . ' ' . $orders_id_tosync . "\n" . EMAIL_TEXT_INVOICE_URL . ' ' . tep_catalog_href_link(FILENAME_CATALOG_ACCOUNT_HISTORY_INFO, 'order_id=' . $orders_id_tosync, 'SSL') . "\n" . EMAIL_TEXT_DATE_ORDERED . ' ' . tep_date_long($order->info['date_purchased']) . "\n\n" . $notify_comments_mail . sprintf(EMAIL_TEXT_STATUS_UPDATE, $orders_status_array[$orders_status_tosync]);
 
@@ -1125,7 +1112,7 @@ foreach ($orderstosync as $ordertosync) {
             $smarty->config_dir = DIR_FS_CATALOG . 'lang';
 
             $smarty->assign('tpl_path', 'templates/' . CURRENT_TEMPLATE . '/');
-            $smarty->assign('logo_path', HTTP_SERVER . DIR_WS_CATALOG . 'templates/' . CURRENT_TEMPLATE . '/img/');
+            $smarty->assign('logo_path', HTTPS_SERVER . DIR_WS_CATALOG . 'templates/' . CURRENT_TEMPLATE . '/img/');
 
             $smarty->assign('NAME', $order->customer['name']);
             $smarty->assign('ORDER_NR', $orders_id_tosync);
@@ -1140,10 +1127,11 @@ foreach ($orderstosync as $ordertosync) {
 
             if ($email_valid) {
                 $email_send_status = sbf_php_mail(EMAIL_BILLING_ADDRESS, EMAIL_BILLING_NAME, $order->customer['email_address'], $order->customer['name'], '', EMAIL_BILLING_REPLY_ADDRESS, EMAIL_BILLING_REPLY_ADDRESS_NAME, '', '', EMAIL_BILLING_SUBJECT, $html_mail, $txt_mail, $order->info['language']);
-                if (empty ($email_send_status))
+                if (empty ($email_send_status)) {
                     $customer_notified = 1;
-                else
+                } else {
                     echo(" <error>" . $email_send_status . "</error>\n");
+                }
             }
 
 
@@ -1153,17 +1141,25 @@ foreach ($orderstosync as $ordertosync) {
 
 
     if (($orders_id_tosync > 0) && ($orders_status_tosync >= 1) && ($orders_status_tosync <= 3)) {
-        sbf_db_query("UPDATE
-						orders
-					  SET
-					  	orders_status = '" . $orders_status_tosync . "'
-					  WHERE
-					  	orders_id = '" . (int)$orders_id_tosync . "'
+        sbf_db_query("UPDATE orders
+					        SET orders_status = '" . $orders_status_tosync . "'
+					      WHERE orders_id = '" . (int)$orders_id_tosync . "'
 					  ");
-        sbf_db_query("INSERT INTO
-						orders_status_history (orders_id, orders_status_id, date_added, customer_notified, comments)
-					  VALUES ('" . (int)$orders_id_tosync . "', '" . $orders_status_tosync . "',
-					  		now(), '" . $customer_notified . "', '" . $notify_comments . "')");
+        sbf_db_query("INSERT INTO orders_status_history (
+                                   orders_id,
+                                   orders_status_id,
+                                   date_added,
+                                   customer_notified,
+                                   comments
+                                 )
+					          VALUES (
+					               '" . (int)$orders_id_tosync . "',
+					               '" . $orders_status_tosync . "',
+					  		       NOW(),
+					  		       '" . $customer_notified . "',
+					  		       '" . $notify_comments . "'
+					  		     )
+					   ");
     }
 
 
@@ -1190,7 +1186,7 @@ if ($action_getproducts) {
         $vpe_query_string_B = "";
     } else {
         $products_short_description_query = ', prod_desc.products_short_description';
-        $vpe_query_string_A = ",	p_vpe.products_vpe_name";
+        $vpe_query_string_A = ", p_vpe.products_vpe_name";
         $vpe_query_string_B = "LEFT JOIN products_vpe p_vpe ON (prod.products_vpe = p_vpe.products_vpe_id) AND (p_vpe.language_id = langu.languages_id)";
     }
 
@@ -1207,37 +1203,36 @@ if ($action_getproducts) {
     }
 
 
-    $products_query = sbf_db_query("SELECT 
-											prod_desc.products_name, prod_desc.products_description " . $products_short_description_query . ",
-											prod.products_model, prod.products_image, products_quantity, prod.products_id " . $ean_query_string . ", prod.products_price,	
-											prod.products_price,
-											cat_desc.categories_name,
-											countries.countries_id,
-											tax.tax_rate, tax.tax_description
-											" . $vpe_query_string_A . "
-
-											FROM
-											products_description prod_desc   
-											LEFT JOIN 
-											products prod ON (prod.products_id = prod_desc.products_id) 
-											LEFT JOIN
-											languages langu ON (langu.languages_id = prod_desc.language_id) 
-											LEFT JOIN 
-											products_to_categories prod_cat ON (prod_cat.products_id = prod.products_id)
-											LEFT JOIN 
-											categories_description cat_desc ON (prod_cat.categories_id = cat_desc.categories_id) AND  (cat_desc.language_id  = langu.languages_id )
-											LEFT JOIN
-											countries ON  (countries.countries_id = '" . STORE_COUNTRY . "')
-											LEFT JOIN 
-											zones_to_geo_zones z2geozones ON (countries.countries_id = z2geozones.zone_country_id)
-											LEFT JOIN 
-											tax_rates tax ON (prod.products_tax_class_id = tax.tax_class_id) AND (z2geozones.geo_zone_id = tax.tax_zone_id)
-											" . $vpe_query_string_B . "											
- 											WHERE
-											(langu.code = '" . DEFAULT_LANGUAGE . "') AND (prod.products_status = '1')
-											" . $lasttime_query . "
-											" . $productslimit_query . "										   
-											");
+    $products_query = sbf_db_query("SELECT prod_desc.products_name, prod_desc.products_description " . $products_short_description_query . ",
+											  prod.products_model, prod.products_image, products_quantity, prod.products_id " . $ean_query_string . ", prod.products_price,	
+											  prod.products_price,
+											  cat_desc.categories_name,
+											  countries.countries_id,
+											  tax.tax_rate, tax.tax_description
+											  " . $vpe_query_string_A . "
+										 FROM products_description prod_desc   
+									LEFT JOIN products prod
+									       ON prod.products_id = prod_desc.products_id 
+									LEFT JOIN languages langu
+									       ON langu.languages_id = prod_desc.language_id 
+									LEFT JOIN products_to_categories prod_cat
+									       ON prod_cat.products_id = prod.products_id
+									LEFT JOIN categories_description cat_desc
+									       ON prod_cat.categories_id = cat_desc.categories_id
+									      AND cat_desc.language_id  = langu.languages_id
+									LEFT JOIN countries
+									       ON countries.countries_id = '" . STORE_COUNTRY . "'
+									LEFT JOIN zones_to_geo_zones z2geozones
+									       ON countries.countries_id = z2geozones.zone_country_id
+									LEFT JOIN tax_rates tax
+									       ON prod.products_tax_class_id = tax.tax_class_id
+									      AND z2geozones.geo_zone_id = tax.tax_zone_id
+											  " . $vpe_query_string_B . "											
+ 										WHERE langu.code = '" . DEFAULT_LANGUAGE . "'
+ 										  AND prod.products_status = '1'
+											  " . $lasttime_query . "
+										      " . $productslimit_query . "										   
+									 ");
 
     $last_products_model_name = "";
     while ($products = sbf_db_fetch_array($products_query)) {
@@ -1245,8 +1240,9 @@ if ($action_getproducts) {
         $products_model_name = $products['products_model'] . $products['products_name'];
 
         if ($last_products_model_name != $products_model_name) {
-            if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE')
+            if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
                 $products['products_short_description'] = $products['products_description'];
+            }
 
             echo("  <product ");
             echo("gross=\"" . my_encrypt(number_format($products['products_price'] * (1 + $products['tax_rate'] / 100), 2)) . "\" ");
@@ -1269,14 +1265,15 @@ if ($action_getproducts) {
                 $parentindex = $products['parent_id'];
                 $parent_cat = array();
                 while ($parentindex > 0) {
-                    $query_get_parent_categories = sbf_db_query("SELECT cat_desc.categories_name AS parent_cat , cat.parent_id AS p_id 
-																FROM categories_description cat_desc 
+                    $query_get_parent_categories = sbf_db_query("SELECT cat_desc.categories_name AS parent_cat, cat.parent_id AS p_id 
+																      FROM categories_description cat_desc 
 																INNER JOIN categories cat 
-																ON (cat_desc.categories_id = cat.categories_id) 
-																LEFT JOIN languages langu
-																ON (langu.languages_id = cat_desc.language_id) 
-																WHERE cat_desc.categories_id = " . $parentindex . " 
-																AND langu.code = '" . DEFAULT_LANGUAGE . "'");
+																        ON cat_desc.categories_id = cat.categories_id 
+															     LEFT JOIN languages langu
+																        ON langu.languages_id = cat_desc.language_id 
+																     WHERE cat_desc.categories_id = " . $parentindex . " 
+																       AND langu.code = '" . DEFAULT_LANGUAGE . "'
+																   ");
 
                     if ($parent_categories = sbf_db_fetch_array($query_get_parent_categories)) {
                         $parent_cat[] = $parent_categories['parent_cat'];
@@ -1300,8 +1297,9 @@ if ($action_getproducts) {
             echo("   <short_description>" . my_clean_nl(my_encode($products['products_short_description'])) . "</short_description>\n");
 
             // Use the image only, if it exists
-            if (file_exists($fs_imagepath . $products['products_image']))
+            if (file_exists($fs_imagepath . $products['products_image'])) {
                 echo("   <image>" . my_encrypt($products['products_image']) . "</image>\n");
+            }
             echo("  </product>\n\n");
         }
 
@@ -1314,7 +1312,7 @@ if ($action_getproducts) {
 
 if ($action_getstatusvalues) {
     echo("<status_list>");
-    $order_status_query = xtc_db_query("SELECT orders_status_id,orders_status_name FROM orders_status");
+    $order_status_query = xtc_db_query("SELECT orders_status_id, orders_status_name FROM orders_status");
     while ($order_status = xtc_db_fetch_array($order_status_query)) {
         echo('<status id="' . $order_status['orders_status_id'] . '" name="' . $order_status['orders_status_name'] . '"></status>');
     }
@@ -1323,18 +1321,14 @@ if ($action_getstatusvalues) {
 
 // generate list of all orders
 if ($action_getorders) {
-    $check_orders_query = sbf_db_query("SELECT
-													o.orders_id, o.orders_status, ot.text AS order_total
-												FROM
-													orders o
-												LEFT JOIN
-													orders_total ot ON (o.orders_id = ot.orders_id)
-												WHERE
-													ot.class = 'ot_total' 
-													AND o.orders_status = '1'
-												ORDER BY 
-													o.orders_id DESC
-												");
+    $check_orders_query = sbf_db_query("SELECT o.orders_id, o.orders_status, ot.text AS order_total
+											 FROM orders o
+										LEFT JOIN orders_total ot
+										       ON o.orders_id = ot.orders_id
+											WHERE ot.class = 'ot_total' 
+											  AND o.orders_status = '1'
+									 	 ORDER BY o.orders_id DESC
+										  ");
 
 
     echo(" <orders>\n");
@@ -1348,9 +1342,7 @@ if ($action_getorders) {
 
         if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
             $payment_class = $paymentsynonym[$order->info['payment_method']];
-
-        }
-        if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
+        } elseif (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
             $payment_class = $order->info['payment_class'];
             $order->info['payment_method'] = $paymentsynonym[$order->info['payment_class']];
         }
@@ -1376,28 +1368,28 @@ if ($action_getorders) {
         if ($payment_class == 'sofortueberweisung_direct') $payment_text = 'payment-networt.com';
         if ($payment_class == 'worldpay_junior') $payment_text = 'bsworldpay.com';
 
-        $orders_history_query = sbf_db_query("SELECT
-														orders_status_id, date_added, comments
-													  FROM
-													  	orders_status_history
-													  WHERE
-													  	orders_id = '" . sbf_db_input($oID) . "'
-													  ORDER BY
-													  	date_added
-													  ");
+        $orders_history_query = sbf_db_query("SELECT orders_status_id, date_added, comments
+												   FROM	orders_status_history
+												  WHERE	orders_id = '" . sbf_db_input($oID) . "'
+											   ORDER BY	date_added
+											    ");
 
 
         // if entry is empty, use entry from customers data or from delivery data
-        if (empty ($order->billing['telephone']) && !empty ($order->customer['telephone']))
+        if (empty ($order->billing['telephone']) && !empty ($order->customer['telephone'])) {
             $order->billing['telephone'] = $order->customer['telephone'];
-        if (empty ($order->billing['telephone']) && !empty ($order->delivery['telephone']))
+        }
+        if (empty ($order->billing['telephone']) && !empty ($order->delivery['telephone'])) {
             $order->billing['telephone'] = $order->delivery['telephone'];
+        }
 
         // if entry is empty, use entry from customers data or from delivery data
-        if (empty ($order->billing['email_address']) && !empty ($order->customer['email_address']))
+        if (empty ($order->billing['email_address']) && !empty ($order->customer['email_address'])) {
             $order->billing['email_address'] = $order->customer['email_address'];
-        if (empty ($order->billing['email_address']) && !empty ($order->delivery['email_address']))
+        }
+        if (empty ($order->billing['email_address']) && !empty ($order->delivery['email_address'])) {
             $order->billing['email_address'] = $order->delivery['email_address'];
+        }
 
 
         echo("  <order id=\"" . my_encrypt($oID) . "\" date=\"" . my_encrypt(date_to_ISO($order->info['date_purchased'])) . "\" ");
@@ -1409,8 +1401,9 @@ if ($action_getorders) {
 
         $total = 0.0;
         $replace_dot = array("." => "", "," => ".");
-        if (preg_match("/[0-9]+\.[0-9]+/", strtr(strip_tags($check_orders['order_total']), $replace_dot), $matches))
+        if (preg_match("/[0-9]+\.[0-9]+/", strtr(strip_tags($check_orders['order_total']), $replace_dot), $matches)) {
             $total = $matches[0];
+        }
 
         echo("currency=\"" . $order->info['currency'] . "\" ");
         echo("currency_value=\"" . $order->info['currency_value'] . "\" ");
@@ -1462,13 +1455,10 @@ if ($action_getorders) {
 
         foreach ($order->products as $product) {
 
-            $orders_tax_query = sbf_db_query("SELECT
-														tax_rate, tax_description
-													  FROM
-													  	tax_rates
-													  WHERE
-													  	tax_class_id = '" . $tax_class . "'
-													  ");
+            $orders_tax_query = sbf_db_query("SELECT tax_rate, tax_description
+												   FROM	tax_rates
+												  WHERE	tax_class_id = '" . $tax_class . "'
+											    ");
 
 
             if ($taxs = sbf_db_fetch_array($orders_tax_query)) {
@@ -1481,18 +1471,21 @@ if ($action_getorders) {
             echo("productid=\"" . my_encode($product['products_id']) . "\" ");
             echo("quantity=\"" . my_encrypt($product['qty']) . "\" ");
 
-            if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE')
+            if (FAKTURAMA_WEBSHOP_BASE == 'OSCOMMERCE') {
                 echo("gross=\"" . my_encrypt(number_format($product['price'] * (1 + $product['tax'] / 100), 2, '.', '')) . "\" ");
-            if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE')
+            }
+            if (FAKTURAMA_WEBSHOP_BASE == 'XTCOMMERCE') {
                 echo("gross=\"" . my_encrypt(number_format($product['price'], 2, '.', '')) . "\" ");
+            }
 
             echo("vatpercent=\"" . my_encrypt(number_format($product['tax'], 2)) . "\">\n");
 
             echo("    <model>");
-            if (!empty($product['model']))
+            if (!empty($product['model'])) {
                 echo(my_encode($product['model']));
-            else
+            } else {
                 echo(my_encode($product['name']));
+            }
             echo("</model>\n");
 
             if ($use_ean_code) {
@@ -1525,16 +1518,12 @@ if ($action_getorders) {
         }
 
         // Get the shipping
-        $totals_query = sbf_db_query("SELECT
-												title, text, class
-											  FROM
-											  	orders_total
-											  WHERE
-											  	orders_id = '" . (int)$oID . "'
-											  	AND class = 'ot_shipping'
-											  ORDER BY
-											  	sort_order
-											  ");
+        $totals_query = sbf_db_query("SELECT title, text, class
+										   FROM	orders_total
+										  WHERE	orders_id = '" . (int)$oID . "'
+										    AND class = 'ot_shipping'
+									   ORDER BY	sort_order
+									    ");
 
         $shipping_title = "";
         $shipping_text = "";
@@ -1544,26 +1533,24 @@ if ($action_getorders) {
         }
 
         // delete last character, if it is a ":"
-        if (substr($shipping_title, -1, 1) == ':')
+        if (substr($shipping_title, -1, 1) == ':') {
             $shipping_title = substr($shipping_title, 0, -1);;
+        }
 
-        if (strrpos($shipping_title, '('))
+        if (strrpos($shipping_title, '(')) {
             $shipping_title = trim(substr($shipping_title, 0, strrpos($shipping_title, '(')));
+        }
 
         $shipping_tax = 0.0;
         $shipping_tax_name = "";
         $shipping_class = $shippingssynonym[$shipping_title];
         if (!empty($shipping_class)) {
-            ;
             $configkey = 'MODULE_SHIPPING_' . strtoupper($shipping_class) . '_TAX_CLASS';
             $tax_class = $configuration_array[$configkey];
-            $orders_tax_query = sbf_db_query("SELECT
-														tax_rate, tax_description
-													  FROM
-													  	tax_rates
-													  WHERE
-													  	tax_class_id = '" . $tax_class . "'
-													  ");
+            $orders_tax_query = sbf_db_query("SELECT tax_rate, tax_description
+												   FROM	tax_rates
+												  WHERE	tax_class_id = '" . $tax_class . "'
+											    ");
             if ($taxs = sbf_db_fetch_array($orders_tax_query)) {
                 $shipping_tax = $taxs['tax_rate'];
                 $shipping_tax_name = $taxs['tax_description'];
@@ -1571,28 +1558,26 @@ if ($action_getorders) {
         }
 
         $shipping_value = 0.0;
-        if (preg_match("/[0-9]+\.[0-9]+/", str_replace(",", ".", $shipping_text), $matches))
+        if (preg_match("/[0-9]+\.[0-9]+/", str_replace(",", ".", $shipping_text), $matches)) {
             $shipping_value = $matches[0];
+        }
 
         // Get the COD fee
-        $totals_query = sbf_db_query("SELECT
-												title, text, class
-											  FROM
-											  	orders_total
-											  WHERE
-											  	orders_id = '" . (int)$oID . "'
-											  	AND class = 'ot_cod_fee'
-											  ORDER BY
-											  	sort_order
-											  ");
+        $totals_query = sbf_db_query("SELECT title, text, class
+										   FROM	orders_total
+										  WHERE	orders_id = '" . (int)$oID . "'
+											AND class = 'ot_cod_fee'
+									   ORDER BY	sort_order
+									    ");
 
         $cod_fee_text = "";
         if ($totals = sbf_db_fetch_array($totals_query)) {
             $cod_fee_text = $totals['text'];
         }
         $cod_fee_value = 0.0;
-        if (preg_match("/[0-9]+\.[0-9]+/", str_replace(",", ".", $cod_fee_text), $matches))
+        if (preg_match("/[0-9]+\.[0-9]+/", str_replace(",", ".", $cod_fee_text), $matches)) {
             $cod_fee_value = $matches[0];
+        }
 
         // Workaround: add the COD fee to the shipping value
         $shipping_value += $cod_fee_value;
